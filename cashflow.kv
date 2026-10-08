@@ -2,6 +2,113 @@
 #:import dp kivy.metrics.dp
 #:import get_color_from_hex kivy.utils.get_color_from_hex
 
+<DatePickerField>:
+    size_hint_y: None
+    height: dp(50)
+    orientation: "horizontal"
+    spacing: dp(4)
+    padding: [dp(12), 0, dp(4), 0]
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, 1
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(14)]
+
+    MDLabel:
+        text: root.date_text
+        size_hint_x: 1
+        font_size: "14sp"
+        halign: "left"
+        valign: "middle"
+        theme_text_color: "Custom"
+        text_color: get_color_from_hex("#1A1A1A")
+
+    MDFlatButton:
+        text: "Pilih Tanggal"
+        size_hint: None, None
+        size: dp(116), dp(44)
+        pos_hint: {"center_y": 0.5}
+        theme_text_color: "Custom"
+        text_color: root.picker_color
+        on_press: root.open_picker()
+
+<BottomNavigation>:
+    orientation: "horizontal"
+    size_hint_y: None
+    height: dp(64)
+    md_bg_color: 1, 1, 1, 1
+
+    MDBoxLayout:
+        orientation: "vertical"
+        padding: [0, dp(6), 0, dp(6)]
+        spacing: dp(2)
+        on_touch_down: if self.collide_point(*args[1].pos): root.navigate("home")
+        MDIcon:
+            icon: "home"
+            size_hint: None, None
+            size: dp(22), dp(22)
+            pos_hint: {"center_x": 0.5}
+            theme_text_color: "Custom"
+            text_color: get_color_from_hex("#278B58") if root.selected == "home" else get_color_from_hex("#8E8E93")
+        MDLabel:
+            text: "Beranda"
+            size_hint_y: None
+            height: dp(18)
+            halign: "center"
+            valign: "middle"
+            font_style: "Caption"
+            bold: root.selected == "home"
+            theme_text_color: "Custom"
+            text_color: get_color_from_hex("#278B58") if root.selected == "home" else get_color_from_hex("#8E8E93")
+
+    MDBoxLayout:
+        orientation: "vertical"
+        padding: [0, dp(6), 0, dp(6)]
+        spacing: dp(2)
+        on_touch_down: if self.collide_point(*args[1].pos): root.navigate("statistic")
+        MDIcon:
+            icon: "chart-box-outline"
+            size_hint: None, None
+            size: dp(22), dp(22)
+            pos_hint: {"center_x": 0.5}
+            theme_text_color: "Custom"
+            text_color: get_color_from_hex("#278B58") if root.selected == "statistic" else get_color_from_hex("#8E8E93")
+        MDLabel:
+            text: "Statistik"
+            size_hint_y: None
+            height: dp(18)
+            halign: "center"
+            valign: "middle"
+            font_style: "Caption"
+            bold: root.selected == "statistic"
+            theme_text_color: "Custom"
+            text_color: get_color_from_hex("#278B58") if root.selected == "statistic" else get_color_from_hex("#8E8E93")
+
+    MDBoxLayout:
+        orientation: "vertical"
+        padding: [0, dp(6), 0, dp(6)]
+        spacing: dp(2)
+        on_touch_down: if self.collide_point(*args[1].pos): root.navigate("history")
+        MDIcon:
+            icon: "text-box-outline"
+            size_hint: None, None
+            size: dp(22), dp(22)
+            pos_hint: {"center_x": 0.5}
+            theme_text_color: "Custom"
+            text_color: get_color_from_hex("#278B58") if root.selected == "history" else get_color_from_hex("#8E8E93")
+        MDLabel:
+            text: "Riwayat"
+            size_hint_y: None
+            height: dp(18)
+            halign: "center"
+            valign: "middle"
+            font_style: "Caption"
+            bold: root.selected == "history"
+            theme_text_color: "Custom"
+            text_color: get_color_from_hex("#278B58") if root.selected == "history" else get_color_from_hex("#8E8E93")
+
 <CustomTextInput@TextInput>:
     multiline: False
     size_hint_y: None
@@ -9,39 +116,6 @@
     padding: ["12dp", "12dp"]
     background_normal: ""
     background_color: 0.95, 0.95, 0.95, 1
-
-<SplashScreen>:
-    canvas.before:
-        Color:
-            rgba: 0.96, 0.95, 0.91, 1
-        Rectangle:
-            pos: self.pos
-            size: self.size
-
-    BoxLayout:
-        orientation: 'vertical'
-        padding: "30dp"
-        spacing: "15dp"
-
-        Widget:
-            size_hint_y: 0.2
-
-        Image:
-            source: root.logo_path
-            size_hint: (None, None)
-            size: ("170dp", "170dp")
-            pos_hint: {"center_x": 0.5}
-
-        Label:
-            text: "Catat. Kelola. Pantau\nKeuanganmu."
-            font_size: "14sp"
-            halign: "center"
-            color: 0.5, 0.5, 0.5, 1
-            size_hint_y: None
-            height: "40dp"
-
-        Widget:
-            size_hint_y: 0.3
 
 <LoginScreen>:
     canvas.before:
@@ -150,7 +224,7 @@
                     background_color: 0, 0, 0, 0
                     size_hint_x: None
                     width: self.texture_size[0]
-                    on_press: app.root.current = 'register'
+                    on_press: root.manager.navigate_to("register")
 
 <RegisterScreen>:
     canvas.before:
@@ -282,7 +356,7 @@
                     background_color: 0, 0, 0, 0
                     size_hint_x: None
                     width: self.texture_size[0]
-                    on_press: app.root.current = 'login'
+                    on_press: root.manager.navigate_to("login")
 
 <HomeScreen>:
     MDBoxLayout:
@@ -361,7 +435,7 @@
 
                             MDLabel:
                                 id: current_month_label
-                                text: "September 2026"
+                                text: "Januari 2026"
                                 bold: True
                                 adaptive_size: True
                                 pos_hint: {"center_y": .5}
@@ -693,84 +767,6 @@
                         theme_text_color: "Custom"
                         text_color: get_color_from_hex("#8E8E93")
 
-        MDCard:
-            radius: [0, 0, 0, 0]
-            elevation: 0
-            md_bg_color: 1, 1, 1, 1
-            size_hint: 1, None
-            height: dp(64)
-            padding: [dp(8), dp(4), dp(8), dp(4)]
-
-            MDBoxLayout:
-                orientation: 'horizontal'
-                size_hint_x: 1
-
-                MDBoxLayout:
-                    orientation: 'vertical'
-                    padding: ["0dp", "8dp", "0dp", "8dp"]
-                    spacing: "2dp"
-
-                    MDIcon:
-                        icon: "home"
-                        font_size: "20sp"
-                        size_hint: None, None
-                        size: "20dp", "20dp"
-                        pos_hint: {"center_x": .5, "center_y": .5}
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#278B58")
-
-                    MDLabel:
-                        text: "Beranda"
-                        halign: "center"
-                        bold: True
-                        font_style: "Caption"
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#278B58")
-
-                MDBoxLayout:
-                    orientation: 'vertical'
-                    padding: ["0dp", "8dp", "0dp", "8dp"]
-                    spacing: "2dp"
-                    on_touch_down: if self.collide_point(*args[1].pos): root.go_to_statistic()
-
-                    MDIcon:
-                        icon: "arrow-top-right"
-                        font_size: "20sp"
-                        size_hint: None, None
-                        size: "20dp", "20dp"
-                        pos_hint: {"center_x": .5, "center_y": .5}
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#8E8E93")
-
-                    MDLabel:
-                        text: "Statistik"
-                        halign: "center"
-                        font_style: "Caption"
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#8E8E93")
-
-                MDBoxLayout:
-                    orientation: 'vertical'
-                    padding: ["0dp", "8dp", "0dp", "8dp"]
-                    spacing: "2dp"
-                    on_touch_down: if self.collide_point(*args[1].pos): root.manager.current = "history"
-
-                    MDIcon:
-                        icon: "text-box-outline"
-                        font_size: "20sp"
-                        size_hint: None, None
-                        size: "20dp", "20dp"
-                        pos_hint: {"center_x": .5, "center_y": .5}
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#8E8E93")
-
-                    MDLabel:
-                        text: "Riwayat"
-                        halign: "center"
-                        font_style: "Caption"
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#8E8E93")
-
 <IncomeScreen>:
     MDBoxLayout:
         orientation: 'vertical'
@@ -789,7 +785,7 @@
                 pos_hint: {"center_y": .5}
                 theme_text_color: "Custom"
                 text_color: get_color_from_hex("#1A1A1A")
-                on_release: root.manager.current = "home"
+                on_release: root.manager.navigate_to("home")
 
             MDLabel:
                 text: "Pemasukan"
@@ -813,7 +809,9 @@
 
                 MDIcon:
                     icon: "plus"
-                    user_font_size: "18sp"
+                    size_hint: None, None
+                    size: dp(20), dp(20)
+                    font_size: "20sp"
                     pos_hint: {"center_y": .5}
                     theme_text_color: "Custom"
                     text_color: 1, 1, 1, 1
@@ -853,37 +851,11 @@
                         theme_text_color: "Custom"
                         text_color: get_color_from_hex("#1A1A1A")
 
-                    MDCard:
-                        radius: [14,]
-                        elevation: 0
-                        md_bg_color: 1, 1, 1, 1
-                        size_hint_y: None
-                        height: "50dp"
-                        padding: ["12dp", "0dp", "12dp", "0dp"]
-
-                        MDBoxLayout:
-                            spacing: "10dp"
-                            pos_hint: {"center_y": .5}
-
-                            MDIcon:
-                                icon: "calendar-blank-outline"
-                                user_font_size: "18sp"
-                                pos_hint: {"center_y": .5}
-                                theme_text_color: "Custom"
-                                text_color: get_color_from_hex("#8E8E93")
-
-                            TextInput:
-                                id: date_input
-                                text: root.date_text
-                                multiline: False
-                                readonly: True
-                                font_size: "14sp"
-                                padding: [0, dp(14)]
-                                background_color: 0, 0, 0, 0
-                                pos_hint: {"center_y": .5}
-                                hint_text_color: get_color_from_hex("#8E8E93")
-                                foreground_color: get_color_from_hex("#1A1A1A")
-                                on_focus: if self.focus: root.open_date_picker()
+                    DatePickerField:
+                        screen: root
+                        date_text: root.date_text
+                        picker_color: root.picker_color
+                        size_hint_x: 1
 
                 MDBoxLayout:
                     orientation: 'vertical'
@@ -916,13 +888,16 @@
 
                             MDIcon:
                                 icon: "currency-usd"
-                                user_font_size: "18sp"
+                                size_hint: None, None
+                                size: dp(20), dp(20)
+                                font_size: "20sp"
                                 pos_hint: {"center_y": .5}
                                 theme_text_color: "Custom"
                                 text_color: get_color_from_hex("#8E8E93")
 
                             TextInput:
                                 id: amount_input
+                                size_hint_x: 1
                                 hint_text: "Masukkan nominal"
                                 input_filter: "int"
                                 multiline: False
@@ -964,13 +939,16 @@
 
                             MDIcon:
                                 icon: "text-box-outline"
-                                user_font_size: "18sp"
+                                size_hint: None, None
+                                size: dp(20), dp(20)
+                                font_size: "20sp"
                                 pos_hint: {"center_y": .5}
                                 theme_text_color: "Custom"
                                 text_color: get_color_from_hex("#8E8E93")
 
                             TextInput:
                                 id: desc_input
+                                size_hint_x: 1
                                 hint_text: "Berikan keterangan"
                                 multiline: False
                                 font_size: "14sp"
@@ -1010,7 +988,7 @@
                 pos_hint: {"center_y": .5}
                 theme_text_color: "Custom"
                 text_color: get_color_from_hex("#1A1A1A")
-                on_release: root.manager.current = "home"
+                on_release: root.manager.navigate_to("home")
 
             MDLabel:
                 text: "Pengeluaran"
@@ -1034,7 +1012,9 @@
 
                 MDIcon:
                     icon: "minus"
-                    user_font_size: "18sp"
+                    size_hint: None, None
+                    size: dp(20), dp(20)
+                    font_size: "20sp"
                     pos_hint: {"center_y": .5}
                     theme_text_color: "Custom"
                     text_color: 1, 1, 1, 1
@@ -1074,37 +1054,11 @@
                         theme_text_color: "Custom"
                         text_color: get_color_from_hex("#1A1A1A")
 
-                    MDCard:
-                        radius: [14, 14, 14, 14]
-                        elevation: 0
-                        md_bg_color: 1, 1, 1, 1
-                        size_hint_y: None
-                        height: "50dp"
-                        padding: ["12dp", "0dp", "12dp", "0dp"]
-
-                        MDBoxLayout:
-                            spacing: "10dp"
-                            pos_hint: {"center_y": .5}
-
-                            MDIcon:
-                                icon: "calendar-blank-outline"
-                                user_font_size: "18sp"
-                                pos_hint: {"center_y": .5}
-                                theme_text_color: "Custom"
-                                text_color: get_color_from_hex("#8E8E93")
-
-                            TextInput:
-                                id: date_input
-                                text: root.date_text
-                                multiline: False
-                                readonly: True
-                                font_size: "14sp"
-                                padding: [0, dp(14)]
-                                background_color: 0, 0, 0, 0
-                                pos_hint: {"center_y": .5}
-                                hint_text_color: get_color_from_hex("#8E8E93")
-                                foreground_color: get_color_from_hex("#1A1A1A")
-                                on_focus: if self.focus: root.open_date_picker()
+                    DatePickerField:
+                        screen: root
+                        date_text: root.date_text
+                        picker_color: root.picker_color
+                        size_hint_x: 1
 
                 MDBoxLayout:
                     orientation: 'vertical'
@@ -1137,13 +1091,16 @@
 
                             MDIcon:
                                 icon: "currency-usd"
-                                user_font_size: "18sp"
+                                size_hint: None, None
+                                size: dp(20), dp(20)
+                                font_size: "20sp"
                                 pos_hint: {"center_y": .5}
                                 theme_text_color: "Custom"
                                 text_color: get_color_from_hex("#8E8E93")
 
                             TextInput:
                                 id: amount_input
+                                size_hint_x: 1
                                 hint_text: "Masukkan nominal"
                                 input_filter: "int"
                                 multiline: False
@@ -1185,13 +1142,16 @@
 
                             MDIcon:
                                 icon: "text-box-outline"
-                                user_font_size: "18sp"
+                                size_hint: None, None
+                                size: dp(20), dp(20)
+                                font_size: "20sp"
                                 pos_hint: {"center_y": .5}
                                 theme_text_color: "Custom"
                                 text_color: get_color_from_hex("#8E8E93")
 
                             TextInput:
                                 id: desc_input
+                                size_hint_x: 1
                                 hint_text: "Contoh: Membeli spidol"
                                 multiline: False
                                 font_size: "14sp"
@@ -1267,7 +1227,7 @@
 
                         MDLabel:
                             id: selected_month_label
-                            text: "September 2026"
+                            text: "Januari 2026"
                             bold: True
                             adaptive_size: True
                             pos_hint: {"center_y": .5}
@@ -1388,67 +1348,6 @@
                         id: chart_container
                         size_hint: 1, 1
 
-        # 5. Bottom Navigation Bar
-        MDCard:
-            radius: [0, 0, 0, 0]
-            elevation: 0
-            md_bg_color: 1, 1, 1, 1
-            size_hint_y: None
-            height: "60dp"
-
-            MDBoxLayout:
-                orientation: 'horizontal'
-
-                MDBoxLayout:
-                    orientation: 'vertical'
-                    padding: ["0dp", "6dp", "0dp", "6dp"]
-                    spacing: "2dp"
-                    on_touch_down: if self.collide_point(*args[1].pos): root.manager.current = "home"
-                    MDIcon:
-                        icon: "home-outline"
-                        pos_hint: {"center_x": .5}
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#8E8E93")
-                    MDLabel:
-                        text: "Beranda"
-                        halign: "center"
-                        font_style: "Caption"
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#8E8E93")
-
-                MDBoxLayout:
-                    orientation: 'vertical'
-                    padding: ["0dp", "6dp", "0dp", "6dp"]
-                    spacing: "2dp"
-                    MDIcon:
-                        icon: "arrow-top-right"
-                        pos_hint: {"center_x": .5}
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#278B58")
-                    MDLabel:
-                        text: "Statistik"
-                        halign: "center"
-                        bold: True
-                        font_style: "Caption"
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#278B58")
-
-                MDBoxLayout:
-                    orientation: 'vertical'
-                    padding: ["0dp", "6dp", "0dp", "6dp"]
-                    spacing: "2dp"
-                    on_touch_down: if self.collide_point(*args[1].pos): root.manager.current = "history"
-                    MDIcon:
-                        icon: "text-box-outline"
-                        pos_hint: {"center_x": .5}
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#8E8E93")
-                    MDLabel:
-                        text: "Riwayat"
-                        halign: "center"
-                        font_style: "Caption"
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#8E8E93")
 <HistoryScreen>:
     MDBoxLayout:
         orientation: 'vertical'
@@ -1508,7 +1407,7 @@
 
                             MDLabel:
                                 id: history_month_label
-                                text: "September 2026"
+                                text: "Januari 2026"
                                 bold: True
                                 adaptive_size: True
                                 pos_hint: {"center_y": .5}
@@ -1537,7 +1436,7 @@
                         size: "72dp", "34dp"
                         font_size: "12sp"
                         radius: [18, 18, 18, 18]
-                        on_press: root.filter_transactions("all")   # Menggunakan on_press agar tindak balas serta-merta
+                        on_release: root.filter_transactions("all")
 
                     MDFillRoundFlatButton:
                         id: btn_filter_income
@@ -1551,7 +1450,7 @@
                         size: "102dp", "34dp"
                         font_size: "12sp"
                         radius: [18, 18, 18, 18]
-                        on_press: root.filter_transactions("income")
+                        on_release: root.filter_transactions("income")
 
                     MDFillRoundFlatButton:
                         id: btn_filter_expense
@@ -1565,7 +1464,7 @@
                         size: "112dp", "34dp"
                         font_size: "12sp"
                         radius: [18, 18, 18, 18]
-                        on_press: root.filter_transactions("expense")
+                        on_release: root.filter_transactions("expense")
                         
                 MDBoxLayout:
                     id: history_list_container
@@ -1636,73 +1535,6 @@
                         bold: True
                         theme_text_color: "Custom"
                         text_color: 1, 1, 1, 1
-
-        MDCard:
-            radius: [0, 0, 0, 0]
-            elevation: 0
-            md_bg_color: 1, 1, 1, 1
-            size_hint_y: None
-            height: "64dp"
-
-            MDBoxLayout:
-                orientation: 'horizontal'
-
-                MDBoxLayout:
-                    orientation: 'vertical'
-                    padding: ["0dp", "8dp", "0dp", "8dp"]
-                    spacing: "2dp"
-                    on_touch_down: if self.collide_point(*args[1].pos): root.manager.current = "home"
-
-                    MDIcon:
-                        icon: "home-outline"
-                        pos_hint: {"center_x": .5}
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#8E8E93")
-
-                    MDLabel:
-                        text: "Beranda"
-                        halign: "center"
-                        font_style: "Caption"
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#8E8E93")
-
-                MDBoxLayout:
-                    orientation: 'vertical'
-                    padding: ["0dp", "8dp", "0dp", "8dp"]
-                    spacing: "2dp"
-                    on_touch_down: if self.collide_point(*args[1].pos): root.manager.current = "statistic"
-
-                    MDIcon:
-                        icon: "arrow-top-right"
-                        pos_hint: {"center_x": .5}
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#8E8E93")
-
-                    MDLabel:
-                        text: "Statistik"
-                        halign: "center"
-                        font_style: "Caption"
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#8E8E93")
-
-                MDBoxLayout:
-                    orientation: 'vertical'
-                    padding: ["0dp", "8dp", "0dp", "8dp"]
-                    spacing: "2dp"
-
-                    MDIcon:
-                        icon: "text-box-outline"
-                        pos_hint: {"center_x": .5}
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#278B58")
-
-                    MDLabel:
-                        text: "Riwayat"
-                        halign: "center"
-                        bold: True
-                        font_style: "Caption"
-                        theme_text_color: "Custom"
-                        text_color: get_color_from_hex("#278B58")
 
 <DetailScreen>:
     MDBoxLayout:
@@ -1860,4 +1692,4 @@
                     size_hint_x: 1
                     size_hint_y: None
                     height: "50dp"
-                    on_release: root.manager.current = "history"
+                    on_release: root.manager.navigate_to("history")

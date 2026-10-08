@@ -12,12 +12,12 @@ version = 1.0
 
 # Python 3 + Kivy/KivyMD + Pillow
 # SQLite adalah modul bawaan Python, jadi tidak perlu ditambahkan ke requirements
-requirements = python3,kivy==2.3.0,kivymd==1.2.0,pillow
+requirements = python3==3.11.6,hostpython3==3.11.6,kivy==2.3.0,kivymd==1.2.0,pillow,sqlite3
 
 orientation = portrait
 fullscreen = 0
 
-presplash.filename = %(source.dir)s/logo.png
+presplash.filename = %(source.dir)s/presplash.png
 android.presplash_color = #F5F2E8
 
 # Aplikasi ini offline dan hanya menyimpan data di folder privat,
@@ -29,7 +29,8 @@ android.ndk = 25b
 android.accept_sdk_license = True
 android.archs = arm64-v8a
 android.release_artifact = apk
-android.icon = %(source.dir)s/logo.png
+icon.filename = %(source.dir)s/icon.png
+android.ant_path = /usr/share/ant
 
 [buildozer]
 log_level = 2

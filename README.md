@@ -24,7 +24,6 @@ Aplikasi ini cocok digunakan untuk kebutuhan pribadi seperti monitoring pengelua
 - `db.py` : koneksi database SQLite dan operasi CRUD transaksi
 - `cashflow.kv` : layout UI Kivy/KivyMD
 - `buildozer.spec` : konfigurasi build Android
-- `build_android.sh` : script build Android lokal
 - `requirements.txt` : daftar dependency Python
 - `cashflow.db` : database lokal aplikasi
 - `logo.png` : logo aplikasi

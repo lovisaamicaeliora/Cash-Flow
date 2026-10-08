@@ -6,3 +6,4 @@ venv/
 *.aab
 bin/
 .DS_Store
+*.log

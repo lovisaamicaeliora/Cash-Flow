@@ -1,5 +1,5 @@
 import calendar
-from datetime import datetime
+from datetime import date, datetime
 import os
 
 from db import Database
@@ -10,11 +10,14 @@ from kivy.core.window import Window
 from kivy.graphics import Color, Ellipse, Line
 from kivy.lang import Builder
 from kivy.metrics import dp
-from kivy.properties import StringProperty
+from kivy.properties import ListProperty, ObjectProperty, StringProperty
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.image import Image
 from kivy.uix.relativelayout import RelativeLayout
 from kivy.uix.screenmanager import Screen, ScreenManager, SlideTransition
 from kivy.uix.stencilview import StencilView
-from kivy.utils import get_color_from_hex
+from kivy.utils import get_color_from_hex, platform
 from kivymd.app import MDApp
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.button import MDFlatButton, MDRaisedButton
@@ -24,21 +27,210 @@ from kivymd.uix.label import MDIcon, MDLabel
 from kivymd.uix.pickers import MDDatePicker
 from kivymd.uix.relativelayout import MDRelativeLayout
 
-# Tentukan Ukuran Window
-Config.set("graphics", "width", "390")
-Config.set("graphics", "height", "844")
-Config.set("graphics", "resizable", "0")
-Config.set("graphics", "borderless", "0")
+# Ukuran jendela hanya dipaksa di desktop; di Android ikut layar
+if platform != "android":
+    Config.set("graphics", "width", "390")
+    Config.set("graphics", "height", "844")
+    Config.set("graphics", "resizable", "0")
+    Config.set("graphics", "borderless", "0")
+    Window.size = (390, 844)
+    Window.minimum_width = 320
+    Window.minimum_height = 560
 
-Window.size = (390, 844)
-Window.minimum_width = 320
-Window.minimum_height = 560
 Window.clearcolor = (0.96, 0.95, 0.91, 1)
 
 db = Database()
 
+MONTH_NAMES = (
+    "",
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+)
+MONTH_ABBREVIATIONS = (
+    "",
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "Mei",
+    "Jun",
+    "Jul",
+    "Agu",
+    "Sep",
+    "Okt",
+    "Nov",
+    "Des",
+)
+WEEKDAY_NAMES = (
+    "Senin",
+    "Selasa",
+    "Rabu",
+    "Kamis",
+    "Jumat",
+    "Sabtu",
+    "Minggu",
+)
+WEEKDAY_ABBREVIATIONS = ("Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min")
+
+calendar.month_name = MONTH_NAMES
+calendar.month_abbr = MONTH_ABBREVIATIONS
+calendar.day_name = WEEKDAY_NAMES
+calendar.day_abbr = WEEKDAY_ABBREVIATIONS
+
+
 class BaseScreen(Screen):
-    pass
+    def prepare_date_picker(self, selected, color):
+        picker = getattr(self, "_date_picker", None)
+        if picker is None:
+            picker = IndonesianDatePicker(
+                year=selected.year,
+                month=selected.month,
+                day=selected.day,
+                primary_color=color,
+                selector_color=color,
+                show_duration=0,
+                hide_duration=0,
+            )
+            picker.bind(on_save=self.set_date)
+            picker.bind(on_dismiss=self.on_date_picker_dismiss)
+            self._date_picker = picker
+        picker.primary_color = color
+        picker.selector_color = color
+        picker_date = (picker.sel_year, picker.sel_month, picker.sel_day)
+        selected_date = (selected.year, selected.month, selected.day)
+        if picker_date != selected_date:
+            picker.sel_year, picker.sel_month, picker.sel_day = selected_date
+            picker.day = selected.day
+            picker.update_calendar(selected.year, selected.month)
+        return picker
+
+    def show_date_picker(self, selected, color):
+        if getattr(self, "_date_picker_opening", False):
+            return
+        active_picker = getattr(self, "_active_date_picker", None)
+        if active_picker and active_picker.parent:
+            return
+
+        picker = self.prepare_date_picker(selected, color)
+        self._active_date_picker = picker
+        self._date_picker_opening = True
+        try:
+            picker.open()
+        except Exception:
+            if not picker.parent:
+                self._date_picker_opening = False
+                self._active_date_picker = None
+            raise
+
+    def on_date_picker_dismiss(self, picker, *_args):
+        self._date_picker_opening = False
+        if picker is self._active_date_picker:
+            self._active_date_picker = None
+
+
+class DirectionalScreenManager(ScreenManager):
+    def navigate_to(self, screen_name):
+        current = self.current
+        if current == screen_name:
+            return
+
+        tab_order = {"home": 0, "statistic": 1, "history": 2}
+        if current in tab_order and screen_name in tab_order:
+            direction = (
+                "left"
+                if tab_order[screen_name] > tab_order[current]
+                else "right"
+            )
+        elif (current in ("income", "expense") and screen_name == "home") or (
+            current == "detail" and screen_name == "history"
+        ) or (current == "register" and screen_name == "login"):
+            direction = "right"
+        elif current in ("home", "history", "login", "splash") or (
+            current in ("income", "expense") and screen_name == "detail"
+        ):
+            direction = "left"
+        else:
+            direction = "left"
+
+        self.transition.direction = direction
+        self.current = screen_name
+
+
+class BottomNavigation(MDBoxLayout):
+    selected = StringProperty("home")
+    manager = ObjectProperty(None, allownone=True)
+
+    def attach(self, manager):
+        self.manager = manager
+        manager.bind(current=self.on_screen_change)
+        self.on_screen_change(manager, manager.current)
+
+    def on_screen_change(self, manager, screen_name):
+        visible = screen_name in ("home", "history", "statistic")
+        self.height = dp(64)
+        self.opacity = 1 if visible else 0
+        self.disabled = not visible
+        if visible:
+            self.selected = screen_name
+
+    def navigate(self, screen_name):
+        if self.manager:
+            self.manager.navigate_to(screen_name)
+
+
+class DatePickerField(MDBoxLayout):
+    screen = ObjectProperty(None, allownone=True)
+    picker_color = ListProperty((0.15, 0.55, 0.35, 1))
+    date_text = StringProperty("")
+
+    def open_picker(self):
+        if self.screen and not getattr(
+            self.screen, "_date_picker_opening", False
+        ):
+            self.screen.open_date_picker()
+
+
+class IndonesianDatePicker(MDDatePicker):
+    def set_text_full_date(self, year, month, day, orientation):
+        horizontal = (
+            orientation == "portrait" or self._input_date_dialog_open
+        )
+
+        def date_repr(selected_date):
+            return (
+                f"{MONTH_ABBREVIATIONS[selected_date.month]} "
+                f"{selected_date.day}"
+            )
+
+        input_dates = self._get_dates_from_fields()
+        if self.mode == "picker":
+            selected_date = date(self.sel_year, self.sel_month, self.sel_day)
+            if input_dates and input_dates[0]:
+                selected_date = input_dates[0]
+            separator = ", " if horizontal else ",\n"
+            weekday = WEEKDAY_ABBREVIATIONS[selected_date.weekday()]
+            return f"{weekday}{separator}{date_repr(selected_date)}"
+
+        start, end = self.min_date, self.max_date
+        if input_dates:
+            start, end = input_dates[0] or start, input_dates[1] or end
+        dates = sorted(value for value in (start, end) if value)
+        if not dates:
+            return "Mulai — Selesai"
+        if len(dates) == 1:
+            return date_repr(dates[0])
+        separator = " — " if horizontal else ",\n"
+        return f"{date_repr(dates[0])}{separator}{date_repr(dates[-1])}"
 
 
 def get_logo_path():
@@ -46,22 +238,6 @@ def get_logo_path():
     if os.path.exists(logo_path):
         return logo_path
     return "atlas://data/images/defaulttheme/filechooser_folder"
-
-
-class SplashScreen(Screen):
-    logo_path = StringProperty(get_logo_path())
-
-    def on_enter(self):
-        Clock.schedule_once(self.go_to_next_screen, 4)
-
-    def go_to_next_screen(self, dt):
-        user = db.get_first_user()
-        if user:
-            home_screen = self.manager.get_screen("home")
-            home_screen.user_name, home_screen.user_email = user
-            self.manager.current = "home"
-        else:
-            self.manager.current = "login"
 
 
 class LoginScreen(Screen):
@@ -86,7 +262,7 @@ class LoginScreen(Screen):
             main_screen = self.manager.get_screen("home")
             main_screen.user_email = email
             main_screen.user_name = user_name
-            self.manager.current = "home"
+            self.manager.navigate_to("home")
         else:
             message_label.text = user_name
 
@@ -128,7 +304,7 @@ class RegisterScreen(Screen):
             self.ids.reg_confirm_password.text = ""
 
             Clock.schedule_once(
-                lambda dt: setattr(self.manager, "current", "login"), 1.5
+                lambda dt: self.manager.navigate_to("login"), 1.5
             )
         else:
             message_label.color = (0.9, 0.2, 0.2, 1)
@@ -143,21 +319,6 @@ class HomeScreen(BaseScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.current_date = datetime.now()
-        self.nama_bulan = [
-            "",
-            "Januari",
-            "Februari",
-            "Maret",
-            "April",
-            "Mei",
-            "Juni",
-            "Juli",
-            "Agustus",
-            "September",
-            "Oktober",
-            "November",
-            "Desember",
-        ]
 
     def on_enter(self):
         if self.ids:
@@ -166,7 +327,7 @@ class HomeScreen(BaseScreen):
         self.update_data()
 
     def update_month_display(self):
-        bulan_text = self.nama_bulan[self.current_date.month]
+        bulan_text = MONTH_NAMES[self.current_date.month]
         tahun_text = self.current_date.year
         if "current_month_label" in self.ids:
             self.ids.current_month_label.text = f"{bulan_text} {tahun_text}"
@@ -225,16 +386,16 @@ class HomeScreen(BaseScreen):
     def open_income(self):
         income_screen = self.manager.get_screen("income")
         income_screen.prepare_for_month(self.current_date)
-        self.manager.current = "income"
+        self.manager.navigate_to("income")
 
     def open_expense(self):
         expense_screen = self.manager.get_screen("expense")
         expense_screen.prepare_for_month(self.current_date)
-        self.manager.current = "expense"
+        self.manager.navigate_to("expense")
 
     def go_to_statistic(self):
         if self.manager:
-            self.manager.current = "statistic"
+            self.manager.navigate_to("statistic")
 
     def show_logout_dialog(self):
         if not self.dialog:
@@ -257,45 +418,35 @@ class HomeScreen(BaseScreen):
 
     def confirm_logout(self, instance):
         self.dialog.dismiss()
-        self.manager.current = "login"
+        self.manager.navigate_to("login")
 
 
 class IncomeScreen(BaseScreen):
-    date_text = StringProperty(datetime.now().strftime("%d %B %Y"))
+    picker_color = get_color_from_hex("#278B58")
+    date_text = StringProperty(datetime.now().strftime("%d/%m/%Y"))
     selected_date = StringProperty(datetime.now().strftime("%Y-%m-%d"))
 
     def prepare_for_month(self, selected_month):
         today = datetime.now()
-        if (selected_month.year, selected_month.month) == (
-            today.year,
-            today.month,
-        ):
-            selected = today
-        else:
-            selected = selected_month.replace(day=1)
+        day = min(
+            today.day,
+            calendar.monthrange(selected_month.year, selected_month.month)[1],
+        )
+        selected = datetime(selected_month.year, selected_month.month, day)
         self.selected_date = selected.strftime("%Y-%m-%d")
-        self.date_text = selected.strftime("%d %B %Y")
+        self.date_text = selected.strftime("%d/%m/%Y")
+        self.ids.amount_input.text = ""
+        self.ids.desc_input.text = ""
+        self.ids.amount_input.focus = False
+        self.ids.desc_input.focus = False
 
     def open_date_picker(self):
         selected = datetime.strptime(self.selected_date, "%Y-%m-%d")
-        picker = MDDatePicker(
-            year=selected.year,
-            month=selected.month,
-            day=selected.day,
-            primary_color=get_color_from_hex("#278B58"),
-            selector_color=get_color_from_hex("#278B58"),
-        )
-        picker.theme_cls.device_orientation = "portrait"
-        picker.size_hint = (None, None)
-        picker.size = (dp(328), dp(512))
-        picker.radius = [16, 16, 16, 16]
-        picker.bind(on_save=self.set_date)
-        picker.open()
+        self.show_date_picker(selected, self.picker_color)
 
     def set_date(self, instance, value, date_range):
-        self.date_text = value.strftime("%d %B %Y")
+        self.date_text = value.strftime("%d/%m/%Y")
         self.selected_date = value.strftime("%Y-%m-%d")
-        self.ids.date_input.focus = False
 
     def save_income(self):
         amount_text = (
@@ -322,45 +473,35 @@ class IncomeScreen(BaseScreen):
         self.ids.amount_input.text = ""
         self.ids.desc_input.text = ""
         home_screen.update_data()
-        self.manager.current = "home"
+        self.manager.navigate_to("home")
 
 
 class ExpenseScreen(BaseScreen):
-    date_text = StringProperty(datetime.now().strftime("%d %B %Y"))
+    picker_color = get_color_from_hex("#F75A68")
+    date_text = StringProperty(datetime.now().strftime("%d/%m/%Y"))
     selected_date = StringProperty(datetime.now().strftime("%Y-%m-%d"))
 
     def prepare_for_month(self, selected_month):
         today = datetime.now()
-        if (selected_month.year, selected_month.month) == (
-            today.year,
-            today.month,
-        ):
-            selected = today
-        else:
-            selected = selected_month.replace(day=1)
+        day = min(
+            today.day,
+            calendar.monthrange(selected_month.year, selected_month.month)[1],
+        )
+        selected = datetime(selected_month.year, selected_month.month, day)
         self.selected_date = selected.strftime("%Y-%m-%d")
-        self.date_text = selected.strftime("%d %B %Y")
+        self.date_text = selected.strftime("%d/%m/%Y")
+        self.ids.amount_input.text = ""
+        self.ids.desc_input.text = ""
+        self.ids.amount_input.focus = False
+        self.ids.desc_input.focus = False
 
     def open_date_picker(self):
         selected = datetime.strptime(self.selected_date, "%Y-%m-%d")
-        picker = MDDatePicker(
-            year=selected.year,
-            month=selected.month,
-            day=selected.day,
-            primary_color=get_color_from_hex("#F75A68"),
-            selector_color=get_color_from_hex("#F75A68"),
-        )
-        picker.theme_cls.device_orientation = "portrait"
-        picker.size_hint = (None, None)
-        picker.size = (dp(328), dp(512))
-        picker.radius = [16, 16, 16, 16]
-        picker.bind(on_save=self.set_date)
-        picker.open()
+        self.show_date_picker(selected, self.picker_color)
 
     def set_date(self, instance, value, date_range):
-        self.date_text = value.strftime("%d %B %Y")
+        self.date_text = value.strftime("%d/%m/%Y")
         self.selected_date = value.strftime("%Y-%m-%d")
-        self.ids.date_input.focus = False
 
     def save_expense(self):
         amount_text = (
@@ -387,7 +528,11 @@ class ExpenseScreen(BaseScreen):
         self.ids.amount_input.text = ""
         self.ids.desc_input.text = ""
         home_screen.update_data()
-        self.manager.current = "home"
+        self.manager.navigate_to("home")
+
+
+class HistoryTransactionRow(ButtonBehavior, MDBoxLayout):
+    pass
 
 
 class StencilRelativeLayout(StencilView, RelativeLayout):
@@ -395,10 +540,25 @@ class StencilRelativeLayout(StencilView, RelativeLayout):
 
 
 class StatisticScreen(Screen):
-    current_date = datetime.now()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.current_date = datetime.now()
+        self._statistics_event = None
+        self._chart_retry_event = None
+        self._chart_retry_count = 0
+        self._pending_chart_data = None
+        self._last_chart_signature = None
 
     def on_enter(self):
         self.update_display()
+
+    def on_leave(self):
+        if self._statistics_event:
+            self._statistics_event.cancel()
+            self._statistics_event = None
+        if self._chart_retry_event:
+            self._chart_retry_event.cancel()
+            self._chart_retry_event = None
 
     def change_month(self, direction):
         year = self.current_date.year
@@ -419,48 +579,26 @@ class StatisticScreen(Screen):
 
     def update_display(self):
         self.update_month_label()
-        Clock.schedule_once(lambda dt: self.update_statistics(), 0.05)
+        if self._statistics_event:
+            self._statistics_event.cancel()
+        self._chart_retry_count = 0
+        self._statistics_event = Clock.schedule_once(
+            self.run_scheduled_statistics, 0
+        )
+
+    def run_scheduled_statistics(self, _dt):
+        self._statistics_event = None
+        self.update_statistics()
 
     def update_month_label(self):
-        month_names = [
-            "",
-            "Januari",
-            "Februari",
-            "Maret",
-            "April",
-            "Mei",
-            "Juni",
-            "Juli",
-            "Agustus",
-            "September",
-            "Oktober",
-            "November",
-            "Desember",
-        ]
         self.ids.selected_month_label.text = (
-            f"{month_names[self.current_date.month]} {self.current_date.year}"
+            f"{MONTH_NAMES[self.current_date.month]} {self.current_date.year}"
         )
 
     def update_statistics(self):
         home_screen = self.manager.get_screen("home")
         email = home_screen.user_email
         data_bulan = []
-        month_names = [
-            "",
-            "Januari",
-            "Februari",
-            "Maret",
-            "April",
-            "Mei",
-            "Juni",
-            "Juli",
-            "Agustus",
-            "September",
-            "Oktober",
-            "November",
-            "Desember",
-        ]
-
         for offset in range(3):
             month = self.current_date.month - offset
             year = self.current_date.year
@@ -469,7 +607,7 @@ class StatisticScreen(Screen):
                 year -= 1
             income, expense = db.get_monthly_summary(email, year, month)
             data_bulan.append({
-                "name": month_names[month][:3],
+                "name": MONTH_NAMES[month][:3],
                 "inc": income,
                 "exp": expense,
             })
@@ -483,25 +621,53 @@ class StatisticScreen(Screen):
         )
 
         chart_data = list(reversed(data_bulan))
-        Clock.schedule_once(lambda dt: self.render_line_chart(chart_data), 0.05)
+        self._pending_chart_data = chart_data
+        if self._chart_retry_event:
+            self._chart_retry_event.cancel()
+        self._chart_retry_event = Clock.schedule_once(
+            self.render_scheduled_chart, 0.05
+        )
+
+    def render_scheduled_chart(self, _dt):
+        self._chart_retry_event = None
+        if self._pending_chart_data is not None:
+            self.render_line_chart(self._pending_chart_data)
 
     def render_line_chart(self, data_bulan):
         chart = self.ids.chart_container
+        w, h = chart.width, chart.height
+        bx, by = chart.x, chart.y
+
+        if w < 50 or h < 50:
+            if (
+                self.manager
+                and self.manager.current == self.name
+                and self._chart_retry_count < 5
+            ):
+                self._chart_retry_count += 1
+                self._pending_chart_data = data_bulan
+                self._chart_retry_event = Clock.schedule_once(
+                    self.render_scheduled_chart, 0.1
+                )
+            return
+
+        signature = (
+            tuple(
+                (item["name"], item["inc"], item["exp"])
+                for item in data_bulan
+            ),
+            w,
+            h,
+            bx,
+            by,
+        )
+        if signature == self._last_chart_signature:
+            return
 
         chart.clear_widgets()
         chart.canvas.clear()
         chart.canvas.before.clear()
         chart.canvas.after.clear()
-
-        w, h = chart.width, chart.height
-        bx, by = chart.x, chart.y
-
-        if w < 50 or h < 50:
-            Clock.schedule_once(
-                lambda dt: self.render_line_chart(data_bulan), 0.05
-            )
-            return
-
         padding_l, padding_r = 45, 25
         padding_b, padding_t = 30, 30
 
@@ -624,6 +790,8 @@ class StatisticScreen(Screen):
                 Ellipse(
                     pos=(pts_exp[i] - 4, pts_exp[i + 1] - 4), size=(8, 8)
                 )
+        self._last_chart_signature = signature
+        self._chart_retry_count = 0
 
 
 class HistoryScreen(BaseScreen):
@@ -640,7 +808,7 @@ class HistoryScreen(BaseScreen):
 
     def update_month_label(self):
         self.ids.history_month_label.text = (
-            f"{self.current_date.strftime('%B')} {self.current_date.year}"
+            f"{MONTH_NAMES[self.current_date.month]} {self.current_date.year}"
         )
 
     def change_month(self, direction):
@@ -655,9 +823,11 @@ class HistoryScreen(BaseScreen):
         self.load_history()
 
     def filter_transactions(self, filter_type):
+        if filter_type == self.current_filter:
+            return
         self.current_filter = filter_type
-        self.update_filter_button_styles() # Perbarui warna tombol saat diklik
-        self.load_history()
+        self.update_filter_button_styles()
+        self.apply_history_filter()
 
     def update_filter_button_styles(self):
         # Daftar tombol dan tipe filternya
@@ -681,22 +851,24 @@ class HistoryScreen(BaseScreen):
                 btn.text_color = inactive_text
 
     def load_history(self):
-        container = self.ids.history_list_container
-        container.clear_widgets()
-
         home_screen = self.manager.get_screen("home")
-        self.transactions_data = db.get_transactions(
+        transactions = db.get_transactions(
             home_screen.user_email,
             self.current_date.year,
             self.current_date.month,
         )
+        if (
+            transactions == self.transactions_data
+            and hasattr(self, "transaction_rows")
+        ):
+            self.apply_history_filter()
+            return
 
-        visible_transactions = [
-            item
-            for item in self.transactions_data
-            if self.current_filter == "all"
-            or item["type"] == self.current_filter
-        ]
+        container = self.ids.history_list_container
+        container.clear_widgets()
+        self.transaction_rows = []
+        self.transactions_data = transactions
+
         total_income = sum(
             item["amount"]
             for item in self.transactions_data
@@ -713,21 +885,14 @@ class HistoryScreen(BaseScreen):
             ",", "."
         )
 
-        self.ids.history_empty_label.opacity = (
-            0 if visible_transactions else 1
-        )
-        self.ids.history_empty_label.height = (
-            "0dp" if visible_transactions else "48dp"
-        )
-
-        for item in visible_transactions:
+        for item in self.transactions_data:
             is_income = item["type"] == "income"
             theme_color = "#278B58" if is_income else "#F75A68"
             bg_icon_color = "#E8F5E9" if is_income else "#FFEBEE"
             sign = "+" if is_income else "-"
             icon_name = "plus" if is_income else "minus"
 
-            row = MDBoxLayout(
+            row = HistoryTransactionRow(
                 orientation="horizontal",
                 size_hint_y=None,
                 height="54dp",
@@ -790,18 +955,38 @@ class HistoryScreen(BaseScreen):
             row.add_widget(info_box)
             row.add_widget(amount_lbl)
 
-            row.bind(
-                on_touch_down=lambda instance, touch, data=item: self.open_detail(
-                    instance, touch, data
-                )
-            )
+            row.bind(on_release=lambda _instance, data=item: self.open_detail(data))
             container.add_widget(row)
+            self.transaction_rows.append((item, row))
 
-    def open_detail(self, instance, touch, data):
-        if instance.collide_point(*touch.pos):
-            detail_screen = self.manager.get_screen("detail")
-            detail_screen.set_detail_data(data)
-            self.manager.current = "detail"
+        self.apply_history_filter()
+
+    def apply_history_filter(self):
+        container = self.ids.history_list_container
+        container.clear_widgets()
+        has_visible_transactions = False
+        for item, row in self.transaction_rows:
+            visible = (
+                self.current_filter == "all"
+                or item["type"] == self.current_filter
+            )
+            if visible:
+                row.height = dp(54)
+                row.opacity = 1
+                row.disabled = False
+                container.add_widget(row)
+                has_visible_transactions = True
+            else:
+                row.disabled = True
+
+        empty_label = self.ids.history_empty_label
+        empty_label.opacity = 0 if has_visible_transactions else 1
+        empty_label.height = dp(0) if has_visible_transactions else dp(48)
+
+    def open_detail(self, data):
+        detail_screen = self.manager.get_screen("detail")
+        detail_screen.set_detail_data(data)
+        self.manager.navigate_to("detail")
 
 class DetailScreen(BaseScreen):
 
@@ -822,7 +1007,10 @@ class DetailScreen(BaseScreen):
         self.ids.detail_desc_label.text = data["desc"]
         try:
             detail_date = datetime.strptime(data["date"], "%Y-%m-%d")
-            self.ids.detail_date_label.text = detail_date.strftime("%d %B %Y")
+            self.ids.detail_date_label.text = (
+                f"{detail_date.day} {MONTH_NAMES[detail_date.month]} "
+                f"{detail_date.year}"
+            )
         except (TypeError, ValueError):
             self.ids.detail_date_label.text = data["date"]
 
@@ -833,6 +1021,7 @@ class DetailScreen(BaseScreen):
 
 class MainApp(MDApp):
     def build(self):
+        self.theme_cls.device_orientation = "portrait"
         if hasattr(db, "init_db"):
             db.init_db()
         elif hasattr(db, "create_tables"):
@@ -843,21 +1032,149 @@ class MainApp(MDApp):
         Builder.unload_file(kv_path)
         Builder.load_file(kv_path)
 
-        sm = ScreenManager(
+        sm = DirectionalScreenManager(
             transition=SlideTransition(direction="left", duration=0.22)
         )
-        sm.add_widget(SplashScreen(name="splash"))
-        sm.add_widget(LoginScreen(name="login"))
+        home_screen = HomeScreen(name="home")
+        login_screen = LoginScreen(name="login")
+        user = db.get_first_user()
+        if user:
+            home_screen.user_name, home_screen.user_email = user
+            sm.add_widget(home_screen)
+        else:
+            sm.add_widget(login_screen)
+
         sm.add_widget(RegisterScreen(name="register"))
-        sm.add_widget(HomeScreen(name="home"))
+        if user:
+            sm.add_widget(login_screen)
+        else:
+            sm.add_widget(home_screen)
         sm.add_widget(IncomeScreen(name="income"))
         sm.add_widget(ExpenseScreen(name="expense"))
         sm.add_widget(StatisticScreen(name="statistic"))
         sm.add_widget(HistoryScreen(name="history"))
         sm.add_widget(DetailScreen(name="detail"))
-        return sm
+        self.screen_manager = sm
+        self.awaiting_exit_confirmation = False
+        self.exit_notice_timeout = None
+        self.launch_splash = None
+        sm.bind(current=self.on_screen_change)
+        root = FloatLayout()
+        content = MDBoxLayout(
+            orientation="vertical",
+            md_bg_color=get_color_from_hex("#FAF8F5"),
+        )
+        content.add_widget(sm)
+        navigation = BottomNavigation(size_hint_y=None, height=dp(64))
+        navigation.attach(sm)
+        content.add_widget(navigation)
+        root.add_widget(content)
+        self.exit_notice = MDCard(
+            size_hint=(0.92, None),
+            height=dp(52),
+            pos_hint={"center_x": 0.5, "y": 0.08},
+            radius=[dp(12)] * 4,
+            elevation=0,
+            md_bg_color=get_color_from_hex("#323232"),
+            opacity=0,
+            disabled=True,
+        )
+        self.exit_notice.add_widget(
+            MDLabel(
+                text="Tekan kembali sekali lagi untuk keluar",
+                halign="center",
+                valign="middle",
+                theme_text_color="Custom",
+                text_color=(1, 1, 1, 1),
+            )
+        )
+        root.add_widget(self.exit_notice)
+        if platform == "android":
+            self.launch_splash = Image(
+                source=os.path.join(os.path.dirname(__file__), "presplash.png"),
+                allow_stretch=True,
+                keep_ratio=True,
+            )
+            root.add_widget(self.launch_splash)
+        return root
+
+    def on_start(self):
+        Window.bind(on_keyboard=self.on_keyboard)
+        Clock.schedule_once(self.prewarm_date_pickers, 0.1)
+        if self.launch_splash:
+            Clock.schedule_once(self.hide_launch_splash, 2)
+
+    def prewarm_date_pickers(self, _dt):
+        selected = datetime.now()
+        for screen_name in ("income", "expense"):
+            screen = self.screen_manager.get_screen(screen_name)
+            screen.prepare_date_picker(selected, screen.picker_color)
+
+    def hide_launch_splash(self, _dt):
+        if self.launch_splash and self.root:
+            self.root.remove_widget(self.launch_splash)
+            self.launch_splash = None
+
+    def on_screen_change(self, manager, screen_name):
+        if screen_name != "home":
+            self.cancel_exit_prompt()
+
+    def on_keyboard(
+        self, window, key, scancode=None, codepoint=None, modifier=None
+    ):
+        if key != 27:
+            return False
+
+        manager = self.screen_manager
+        back_routes = {
+            "register": "login",
+            "income": "home",
+            "expense": "home",
+            "statistic": "home",
+            "history": "home",
+            "detail": "history",
+        }
+        destination = back_routes.get(manager.current)
+        if destination:
+            self.dismiss_exit_prompt()
+            manager.navigate_to(destination)
+            return True
+
+        if self.awaiting_exit_confirmation:
+            self.awaiting_exit_confirmation = False
+            self.dismiss_exit_prompt()
+            self.stop()
+            return True
+
+        self.awaiting_exit_confirmation = True
+        self.show_exit_prompt()
+        return True
+
+    def show_exit_prompt(self):
+        self.dismiss_exit_prompt()
+        self.exit_notice.disabled = False
+        self.exit_notice.opacity = 1
+        self.exit_notice_timeout = Clock.schedule_once(
+            lambda _dt: self.hide_exit_notice(), 2
+        )
+
+    def hide_exit_notice(self):
+        if self.exit_notice_timeout:
+            self.exit_notice_timeout.cancel()
+            self.exit_notice_timeout = None
+        self.exit_notice.opacity = 0
+        self.exit_notice.disabled = True
+
+    def dismiss_exit_prompt(self):
+        self.hide_exit_notice()
+
+    def cancel_exit_prompt(self):
+        self.dismiss_exit_prompt()
+        self.awaiting_exit_confirmation = False
 
     def on_stop(self):
+        Window.unbind(on_keyboard=self.on_keyboard)
+        self.dismiss_exit_prompt()
         db.close()
 
 
