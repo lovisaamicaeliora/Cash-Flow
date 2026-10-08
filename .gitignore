@@ -1,0 +1,8 @@
+.buildozer/
+__pycache__/
+venv/
+*.pyc
+*.apk
+*.aab
+bin/
+.DS_Store
